@@ -18,16 +18,10 @@ app.use(bodyParser.json());
 
 // TEST ENDPOINT
 app.get('/api/reminders', (req, res) => {
-    // db.connect((err) => {
-    //     if (err) throw err;
-    //     console.log('Connected!');
-    // });
     const query = 'SELECT * FROM reminder;'
     db.query(query, (err, result) => {
         res.status(200).send(`Reminders:\n \'${JSON.stringify(result)}\'`);
     });
-
-    // db.end();
 });
 
 app.post('/api/cron', (req, res) => {
@@ -44,6 +38,12 @@ app.post('/api/cron', (req, res) => {
     res.status(200).send();
 });
 
+/*
+* Request body needs to have 3 fields
+* phoneNumber - String
+* message - String
+* date - String - UTC 'YYYY-MM-DDThh:mm:ssZ'
+*/
 app.post('/api/remind', (req, res) => {
     const { phoneNumber, message, date } = req.body;
     const insertQuery = `INSERT INTO reminder (phone_number, message) VALUES ("${phoneNumber}", "${message}");`;
