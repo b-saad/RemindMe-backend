@@ -1,18 +1,10 @@
 import express from 'express';
 import bodyParser from 'body-parser';
-import { db_host, db_user, db_password, db_name } from './config.json';
+import db from './db' ;
 
-const mysql = require('mysql');
 const CronJob = require('cron').CronJob;
 const app = express();
 const PORT = 8000;
-
-const db = mysql.createConnection ({
-    host: db_host,
-    user: db_user,
-    password: db_password,
-    database: db_name
-});
 
 app.use(bodyParser.json());
 
@@ -24,6 +16,7 @@ app.get('/api/reminders', (req, res) => {
     });
 });
 
+// TEST ENDPOINT
 app.post('/api/cron', (req, res) => {
     const { date } = req.body;
     new CronJob(
@@ -70,7 +63,6 @@ app.post('/api/remind', (req, res) => {
 * @param date: String - UTC 'YYYY-MM-DDThh:mm:ssZ'
 */
 function sendReminder(reminder_id, date) {
-
     new CronJob(
         new Date(date),
         function() {
