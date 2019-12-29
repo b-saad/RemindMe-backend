@@ -1,6 +1,7 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import db from './db' ;
+import { createReminder } from './reminder';
 
 const CronJob = require('cron').CronJob;
 const app = express();
@@ -39,49 +40,14 @@ app.post('/api/cron', (req, res) => {
 */
 app.post('/api/remind', (req, res) => {
     const { phoneNumber, message, date } = req.body;
-    const insertQuery = `INSERT INTO reminder (phone_number, message) VALUES ("${phoneNumber}", "${message}");`;
-    const selectLastIdQuery = 'SELECT LAST_INSERT_ID();'
-    db.query(insertQuery, (err, result) => {
+    createReminder(phoneNumber, message, date, (err) => { 
         if (err) {
-            res.status(500).send(`An error ocurred: ${err}`);
-            return;
+            res.status(500).send(`An error ocurred: ${err}`)
+        } else {
+            res.status(200).send(`${date}`);
         }
-        db.query(selectLastIdQuery, (err, result) => {
-            if (err) {
-                res.status(500).send(`An error ocurred: ${err}`);
-                return;
-            }
-            sendReminder(result[0]['LAST_INSERT_ID()'], date);
-        });
-        res.status(200).send(`inserted`);
     });
 });
-
-/*
-* Sends a reminder with `reminder_id` at provided `date`
-* @param reminder_id: int
-* @param date: String - UTC 'YYYY-MM-DDThh:mm:ssZ'
-*/
-function sendReminder(reminder_id, date) {
-    new CronJob(
-        new Date(date),
-        function() {
-            const selectReminderQuery = `SELECT * FROM reminder WHERE reminder_id = ${reminder_id}`;
-            db.query(selectReminderQuery, (err, result) => {
-                if (err) {
-                    console.log(`An error ocurred when retrieving the reminder: ${err}`);
-                    return;
-                }
-                const { phone_number, message } = result[0];
-                console.log(`${phone_number} - ${message}`);
-            
-                });
-            this.stop();
-        },
-        null,
-        true
-    );
-}
 
 app.listen(PORT, () => 
     console.log(`Listening on port ${PORT}`)
