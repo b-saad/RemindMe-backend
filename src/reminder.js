@@ -1,4 +1,5 @@
 import db from './db';
+import { sendMessage } from './twilio-wrapper';
 
 const CronJob = require('cron').CronJob;
 
@@ -45,7 +46,7 @@ function sendReminder(reminderId, date) {
                     return;
                 }
                 const { phone_number, message } = result[0];
-                console.log(`${phone_number} - ${message}`);
+                sendMessage(phone_number, message, (response) => console.log(response));
             });
             this.stop();
             deleteReminder(reminderId);
