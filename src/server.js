@@ -48,7 +48,7 @@ app.post('/remind', (req, res) => {
         if (err) {
             res.status(500).send(`An error ocurred: ${err}`)
         } else {
-            res.status(200).send(`${date}`);
+            res.status(200).send(`Reminder will be sent on ${date}`);
         }
     });
 });
