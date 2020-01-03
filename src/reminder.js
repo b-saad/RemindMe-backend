@@ -46,7 +46,7 @@ function sendReminder(reminderId, date) {
                     return;
                 }
                 const { phone_number, message } = result[0];
-                sendMessage(phone_number, message, null);
+                sendMessage(phone_number, `RemindMe - ${message}`, null);
             });
             this.stop();
             deleteReminder(reminderId);
