@@ -42,7 +42,7 @@ app.use(bodyParser.json());
 * date - String - UTC 'YYYY-MM-DDThh:mm:ssZ'
 */
 app.post('/remind', (req, res) => {
-    console.log("request received");
+    console.log('reminder request received');
     const { phoneNumber, message, date } = req.body;
     createReminder(phoneNumber, message, date, (err) => {
         if (err) {
