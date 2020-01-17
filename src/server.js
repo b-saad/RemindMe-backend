@@ -46,7 +46,8 @@ app.post('/remind', (req, res) => {
     const { phoneNumber, message, date } = req.body;
     createReminder(phoneNumber, message, date, (err) => {
         if (err) {
-            res.status(500).send(`An error ocurred: ${err}`)
+            res.status(500).send(`An error ocurred`);
+            console.log(err);
         } else {
             res.status(200).send(`Reminder will be sent on ${date}`);
         }
