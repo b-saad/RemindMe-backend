@@ -5,6 +5,8 @@
 function validFutureDate(date) {
     const now = new Date();
     const dateObject = Date.parse(date);
+    console.log('now: ' + now)
+    console.log('date: ' + dateObject)
     return now > dateObject;
 }
 

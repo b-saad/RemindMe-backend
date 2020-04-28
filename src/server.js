@@ -47,7 +47,6 @@ app.post('/remind', (req, res) => {
     const { phoneNumber, message, date } = req.body;
     if (!validFutureDate(date)) {
         res.status(500).send(`Please provide a time in the future`);
-        console.log(err);
         return
     }
     createReminder(phoneNumber, message, date, (err) => {
