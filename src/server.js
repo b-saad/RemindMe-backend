@@ -2,6 +2,7 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import { path_to_ssl_cert, path_to_ssl_private_key, path_to_ssl_chain } from './config.json';
 import { createReminder } from './reminder';
+import { validFutureDate } from './utility';
 
 // Dependencies
 const fs = require('fs');
@@ -44,6 +45,11 @@ app.use(bodyParser.json());
 app.post('/remind', (req, res) => {
     console.log('reminder request received');
     const { phoneNumber, message, date } = req.body;
+    if (!validFutureDate(date)) {
+        res.status(500).send(`Please provide a time in the future`);
+        console.log(err);
+        return
+    }
     createReminder(phoneNumber, message, date, (err) => {
         if (err) {
             res.status(500).send(`An error ocurred`);
