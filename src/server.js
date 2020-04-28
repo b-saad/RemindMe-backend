@@ -43,7 +43,7 @@ app.use(bodyParser.json());
 * date - String - UTC 'YYYY-MM-DDThh:mm:ssZ'
 */
 app.post('/remind', (req, res) => {
-    console.log('reminder request received');
+    console.log('reminder request received - ' + new Date());
     const { phoneNumber, message, date } = req.body;
     if (!validFutureDate(date)) {
         res.status(500).send(`Please provide a time in the future`);
