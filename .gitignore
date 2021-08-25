@@ -159,3 +159,9 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+# zips
+*.z
+
+# terraform
+.terraform/
