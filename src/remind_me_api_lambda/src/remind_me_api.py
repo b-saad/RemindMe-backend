@@ -105,7 +105,7 @@ def _is_event_in_current_scheduling_window(timestamp: str) -> bool:
     event_timestamp = datetime.fromtimestamp(int(timestamp))
     time_delta = event_timestamp - current_timestamp
     time_delta_seconds = math.ceil(time_delta.total_seconds())
-    return time_delta_seconds > STORAGE_TIME_DELTA_MINIMUM_SECONDS
+    return time_delta_seconds > 5 and time_delta_seconds < int(STORAGE_TIME_DELTA_MINIMUM_SECONDS)
 
 
 def handler(event, context):
@@ -113,4 +113,4 @@ def handler(event, context):
     if err is not None:
         return _create_json_response(400, err)
 
-	return _create_json_response(200, "Reminder successfully scheduled")
+    return _create_json_response(200, "Reminder successfully scheduled")
