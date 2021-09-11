@@ -92,7 +92,7 @@ def test_is_event_in_current_scheduling_window_left_bound(mocker):
     invalid_timestamp = 0
     result = remind_me_api._event_in_current_scheduling_window(invalid_timestamp)
 
-    assert not result 
+    assert result 
 
 
 @pytest.mark.parametrize("event", [

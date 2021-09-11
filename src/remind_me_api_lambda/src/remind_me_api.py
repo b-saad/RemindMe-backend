@@ -20,6 +20,8 @@ REQUEST_PHONE_KEY = "phone_number"
 
 EVENT_TABLE_NAME = os.environ.get("EVENT_TABLE_NAME")
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
+SMS_QUEUE_NAME = os.environ.get("SMS_QUEUE_NAME")
+EMAIL_QUEUE_NAME = os.environ.get("EMAIL_QUEUE_NAME")
 STORAGE_TIME_DELTA_MINIMUM_SECONDS = os.environ.get("SCHEDULER_LAMBDA_RATE_SECONDS", "600")
 
 logger = logging.getLogger()
@@ -102,6 +104,20 @@ def _create_json_response(status_code: int, message: str) -> Dict:
     }
 
 
+def _time_delta_from_now(timestamp: str) -> bool:
+    """
+    Returns the time difference in seconds between now and the timestamp
+    
+    Args:
+        timestamp: The timestamp in unix time
+    """
+    current_timestamp = datetime.utcnow()
+    event_timestamp = datetime.fromtimestamp(int(timestamp))
+    time_delta = event_timestamp - current_timestamp
+    time_delta_seconds = math.ceil(time_delta.total_seconds())
+    return time_delta_seconds
+
+
 def _event_in_current_scheduling_window(timestamp: str) -> bool:
     """
     Checks if the provided timestamp is in the current scheduling window
@@ -109,11 +125,9 @@ def _event_in_current_scheduling_window(timestamp: str) -> bool:
     Args:
         timestamp: The event's timestamp in unix time
     """
-    current_timestamp = datetime.utcnow()
-    event_timestamp = datetime.fromtimestamp(int(timestamp))
-    time_delta = event_timestamp - current_timestamp
-    time_delta_seconds = math.ceil(time_delta.total_seconds())
-    return time_delta_seconds > 5 and time_delta_seconds < int(STORAGE_TIME_DELTA_MINIMUM_SECONDS)
+    time_delta_seconds = _time_delta_from_now(timestamp)
+    # we mark time stamps < 0 as valid in window
+    return time_delta_seconds < int(STORAGE_TIME_DELTA_MINIMUM_SECONDS)
 
 
 def _create_event_record_from_request(request: Dict) -> Dict:
@@ -145,14 +159,17 @@ def _add_event_to_db(request: Dict):
     """
     table = boto3.resource('dynamodb').Table(EVENT_TABLE_NAME)
     record = _create_event_record_from_request(request)
-    for _ in range(5):
+    retry_limit = 5
+    for attempt in range(retry_limit):
         try:
             table.put_item(record)
             return
         except ClientError as e:
-            logger.error("Failed to add request %s to db. Error: %s", request, e)
-            time.sleep(.200)
-    logger.error("Failed to save event to db: %s. Will not retry", request)
+            logger.error("Failed to save event %s to db. Error: %s", request, e)
+            if attempt == retry_limit - 1:
+                raise
+            else:
+                time.sleep(.200)
 
 
 def _schedule_event(request: Dict):
@@ -162,7 +179,22 @@ def _schedule_event(request: Dict):
     Args:
         request: event received by lambda
     """
-    
+    delay = _time_delta_from_now(request[REQUEST_TIMESTAMP_KEY])
+    delay = max(0, delay)
+    event = _create_event_record_from_request(request)
+    sqs = boto3.resource('sqs')
+    queue_name = EMAIL_QUEUE_NAME if request[REQUEST_EVENT_TYPE_KEY] == EVENT_TYPE_EMAIL else SMS_QUEUE_NAME
+    queue = sqs.get_queue_by_name(QueueName=queue_name)
+    try:
+        response = queue.send_message(
+            MessageBody=json.dumps(event),
+            DelaySeconds=delay
+        )
+        if 'Failed' in response:
+            raise ClientError(response["Failed"])
+    except ClientError as e:
+        logger.error("Failed to add request %s to SQS queue. Error: %s", request, e)
+        raise
 
 
 def handler(event, context):
@@ -170,9 +202,16 @@ def handler(event, context):
     if err is not None:
         return _create_json_response(400, err)
     
-    if _event_in_current_scheduling_window(event[REQUEST_TIMESTAMP_KEY]):
-        _schedule_event(event)
-    else:
-        _add_event_to_db(event)
+    err = None
+    try:
+        if _event_in_current_scheduling_window(event[REQUEST_TIMESTAMP_KEY]):
+            _schedule_event(event)
+        else:
+            _add_event_to_db(event)
+    except ClientError as _:
+        err = 1
 
-    return _create_json_response(200, "Reminder successfully scheduled")
+    status_code = 200 if err is None else 500
+    err_msg = "Reminder failed to be scheduled"
+    success_msg = "Reminder successfully scheduled"
+    return _create_json_response(status_code, success_msg if status_code == 200 else err_msg)
