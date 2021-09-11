@@ -1,4 +1,7 @@
+import boto3
+from botocore.exceptions import ClientError
 import json
+import logging
 import math
 import os
 import time
@@ -15,7 +18,12 @@ REQUEST_MESSAGE_KEY = "message"
 REQUEST_EMAIL_KEY = "email"
 REQUEST_PHONE_KEY = "phone_number"
 
-STORAGE_TIME_DELTA_MINIMUM_SECONDS = os.environ.get("SCHEDULER_LAMBDA_RATE_SECONDS")
+EVENT_TABLE_NAME = os.environ.get("EVENT_TABLE_NAME")
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
+STORAGE_TIME_DELTA_MINIMUM_SECONDS = os.environ.get("SCHEDULER_LAMBDA_RATE_SECONDS", "600")
+
+logger = logging.getLogger()
+logger.setLevel(LOG_LEVEL)
 
 def _validate_required_fields(request: Dict) -> Optional[str]:
     """
@@ -94,7 +102,7 @@ def _create_json_response(status_code: int, message: str) -> Dict:
     }
 
 
-def _is_event_in_current_scheduling_window(timestamp: str) -> bool:
+def _event_in_current_scheduling_window(timestamp: str) -> bool:
     """
     Checks if the provided timestamp is in the current scheduling window
     
@@ -108,9 +116,63 @@ def _is_event_in_current_scheduling_window(timestamp: str) -> bool:
     return time_delta_seconds > 5 and time_delta_seconds < int(STORAGE_TIME_DELTA_MINIMUM_SECONDS)
 
 
+def _create_event_record_from_request(request: Dict) -> Dict:
+    """
+    Creates normalized event record  
+
+    Args:
+        request: valid event received by lambda
+    """
+    target = request[REQUEST_EMAIL_KEY] if request[REQUEST_EVENT_TYPE_KEY] == EVENT_TYPE_EMAIL else request[REQUEST_PHONE_KEY]
+    ttl = int(request[REQUEST_TIMESTAMP_KEY]) + 10 * 60 # 10 mins after scheduled event
+    reminder_record = {
+        "EventId": str(uuid.uuid4()),
+        "EventTimestamp": int(request[REQUEST_TIMESTAMP_KEY]),
+        "EventType": request[REQUEST_EVENT_TYPE_KEY],
+        "TimeToLive": ttl,
+        "Target": target,
+        "Message": request[REQUEST_MESSAGE_KEY]
+    }
+    return reminder_record
+
+
+def _add_event_to_db(request: Dict):
+    """
+    Adds event to DB
+
+    Args:
+        request: event received by lambda
+    """
+    table = boto3.resource('dynamodb').Table(EVENT_TABLE_NAME)
+    record = _create_event_record_from_request(request)
+    for _ in range(5):
+        try:
+            table.put_item(record)
+            return
+        except ClientError as e:
+            logger.error("Failed to add request %s to db. Error: %s", request, e)
+            time.sleep(.200)
+    logger.error("Failed to save event to db: %s. Will not retry", request)
+
+
+def _schedule_event(request: Dict):
+    """
+    Schedule event to be processed through stream
+
+    Args:
+        request: event received by lambda
+    """
+    
+
+
 def handler(event, context):
     err = _validate_request_body(event)
     if err is not None:
         return _create_json_response(400, err)
+    
+    if _event_in_current_scheduling_window(event[REQUEST_TIMESTAMP_KEY]):
+        _schedule_event(event)
+    else:
+        _add_event_to_db(event)
 
     return _create_json_response(200, "Reminder successfully scheduled")
