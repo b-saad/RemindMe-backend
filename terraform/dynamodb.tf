@@ -1,6 +1,6 @@
 
 
-resource "aws_dynamodb_table" "events-dynamodb-table" {
+resource "aws_dynamodb_table" "events_dynamodb_table" {
   name           = "RemindMeEvents"
   billing_mode   = "PROVISIONED"
   read_capacity  = 10
