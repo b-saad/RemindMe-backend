@@ -19,8 +19,8 @@ resource "aws_dynamodb_table" "events-dynamodb-table" {
   }
 
   ttl {
-    attribute_name = "TimeToExist"
-    enabled        = false
+    attribute_name = "TimeToLive"
+    enabled        = true
   }
 
   tags = {
