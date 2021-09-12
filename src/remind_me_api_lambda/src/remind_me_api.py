@@ -162,7 +162,7 @@ def _add_event_to_db(request: Dict):
     retry_limit = 5
     for attempt in range(retry_limit):
         try:
-            table.put_item(record)
+            table.put_item(Item=record)
             return
         except ClientError as e:
             logger.error("Failed to save event %s to db. Error: %s", request, e)
@@ -202,16 +202,12 @@ def handler(event, context):
     if err is not None:
         return _create_json_response(400, err)
     
-    err = None
     try:
         if _event_in_current_scheduling_window(event[REQUEST_TIMESTAMP_KEY]):
             _schedule_event(event)
         else:
             _add_event_to_db(event)
     except ClientError as _:
-        err = 1
+       return _create_json_response(500, "Reminder failed to be scheduled") 
 
-    status_code = 200 if err is None else 500
-    err_msg = "Reminder failed to be scheduled"
-    success_msg = "Reminder successfully scheduled"
-    return _create_json_response(status_code, success_msg if status_code == 200 else err_msg)
+    return _create_json_response(200, "Reminder successfully scheduled")

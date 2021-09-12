@@ -4,11 +4,21 @@
 
 resource "aws_lambda_function" "remind_api_lambda" {
   role             = aws_iam_role.remind_me_api_lambda_role.arn
-  handler          = "lambda.handler"
+  handler          = "remind_me_api.handler"
   runtime          = var.runtime
   filename         = var.remind_me_api_lambda_zip_file
   function_name    = var.remind_me_api_function_name
   source_code_hash = filebase64sha256(var.remind_me_api_lambda_zip_file)
+
+  environment {
+    variables = {
+      LOG_LEVEL = "INFO"
+      EVENT_TABLE_NAME = aws_dynamodb_table.events_dynamodb_table.name
+      SMS_QUEUE_NAME = ""
+      EMAIL_QUEUE_NAME = ""
+      STORAGE_TIME_DELTA_MINIMUM_SECONDS = var.storage_time_delta_minimum_seconds
+    }
+  }
 }
 
 resource "aws_iam_role" "remind_me_api_lambda_role" {
@@ -41,12 +51,21 @@ resource "aws_iam_role_policy" "remind_me_api_lambda_role_policy" {
   "Version": "2012-10-17",
   "Statement": [
       {
+        "Action": [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "Resource": "arn:aws:logs:*:*:*",
+        "Effect": "Allow"
+      },
+      {
          "Effect": "Allow",
          "Action": [
-            "logs:*"
+            "dynamodb:PutItem"
          ],
          "Resource": [
-            "*"
+            "${aws_dynamodb_table.events_dynamodb_table.arn}"
          ]
       }
   ]
@@ -54,16 +73,7 @@ resource "aws_iam_role_policy" "remind_me_api_lambda_role_policy" {
 EOF
 }
 
-# ,
-#       {
-#          "Effect": "Allow",
-#          "Action": [
-#             "dynamodb:*"
-#          ],
-#          "Resource": [
-#             "${aws_dynamo_db.events-dynamodb-table.arn}"
-#          ]
-#       }
+
 
 resource "aws_lambda_permission" "apigw" {
   statement_id  = "AllowAPIGatewayInvoke"
