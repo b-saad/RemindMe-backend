@@ -193,7 +193,7 @@ def _schedule_event(request: Dict):
         if 'Failed' in response:
             raise ClientError(response["Failed"])
     except ClientError as e:
-        logger.error("Failed to add request %s to SQS queue. Error: %s", request, e)
+        logger.error("Failed to add event %s to SQS queue. Error: %s", request, e)
         raise
 
 

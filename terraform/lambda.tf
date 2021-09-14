@@ -73,8 +73,6 @@ resource "aws_iam_role_policy" "remind_me_api_lambda_role_policy" {
 EOF
 }
 
-
-
 resource "aws_lambda_permission" "apigw" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
@@ -85,3 +83,8 @@ resource "aws_lambda_permission" "apigw" {
   # within the API Gateway "REST API".
   source_arn = "${aws_api_gateway_rest_api.remind_me_api_gateway.execution_arn}/*/*"
 }
+
+
+################################
+##### Event Poller Lambda ######
+################################
