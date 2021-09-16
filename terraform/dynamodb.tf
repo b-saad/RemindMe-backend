@@ -18,18 +18,23 @@ resource "aws_dynamodb_table" "events_dynamodb_table" {
     type = "N"
   }
 
+  attribute {
+    name = "EventWindowStart"
+    type = "N"
+  }
+
   ttl {
     attribute_name = "TimeToLive"
     enabled        = true
   }
 
   global_secondary_index {
-    name               = "EventTimestampIndex"
-    hash_key           = "EventTimestamp"
-    range_key          = "TimeToLive"
-    write_capacity     = 5
-    read_capacity      = 7
-    projection_type    = "ALL"
+    name            = var.event_table_secondary_index_name
+    hash_key        = "EventWindowStart"
+    range_key       = "EventTimestamp"
+    write_capacity  = 5
+    read_capacity   = 7
+    projection_type = "ALL"
   }
 
   tags = {

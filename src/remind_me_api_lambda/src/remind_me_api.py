@@ -5,7 +5,7 @@ import logging
 import math
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 from typing import Dict, Optional
 
@@ -112,7 +112,7 @@ def _time_delta_from_now(timestamp: str) -> bool:
         timestamp: The timestamp in unix time
     """
     current_timestamp = datetime.utcnow()
-    event_timestamp = datetime.fromtimestamp(int(timestamp))
+    event_timestamp = datetime.utcfromtimestamp(int(timestamp))
     time_delta = event_timestamp - current_timestamp
     time_delta_seconds = math.ceil(time_delta.total_seconds())
     return time_delta_seconds
@@ -130,6 +130,20 @@ def _event_in_current_scheduling_window(timestamp: str) -> bool:
     return time_delta_seconds < int(STORAGE_TIME_DELTA_MINIMUM_SECONDS)
 
 
+def _get_previous_ten_minute_interval_start(timestamp: str) -> int:
+    """
+    Gets the start of 10 minute interval for the current timestamp
+    
+    Returns:
+        Unix timestamp for start of last 10 min interval
+    """
+    event_timestamp = datetime.utcfromtimestamp(int(timestamp)) 
+    interval_start = event_timestamp - timedelta(minutes=event_timestamp.minute % 10,
+                                                seconds=event_timestamp.second,
+                                                microseconds=event_timestamp.microsecond)
+    return int(interval_start.timestamp())
+
+
 def _create_event_record_from_request(request: Dict) -> Dict:
     """
     Creates normalized event record  
@@ -139,10 +153,12 @@ def _create_event_record_from_request(request: Dict) -> Dict:
     """
     target = request[REQUEST_EMAIL_KEY] if request[REQUEST_EVENT_TYPE_KEY] == EVENT_TYPE_EMAIL else request[REQUEST_PHONE_KEY]
     ttl = int(request[REQUEST_TIMESTAMP_KEY]) + 10 * 60 # 10 mins after scheduled event
+    ten_minute_window = _get_previous_ten_minute_interval_start(request[REQUEST_TIMESTAMP_KEY])
     reminder_record = {
         "EventId": str(uuid.uuid4()),
         "EventTimestamp": int(request[REQUEST_TIMESTAMP_KEY]),
         "EventType": request[REQUEST_EVENT_TYPE_KEY],
+        "EventWindowStart": ten_minute_window,
         "TimeToLive": ttl,
         "Target": target,
         "Message": request[REQUEST_MESSAGE_KEY]
@@ -179,7 +195,7 @@ def _schedule_event(request: Dict):
     Args:
         request: event received by lambda
     """
-    delay = _time_delta_from_now(request[REQUEST_TIMESTAMP_KEY])
+    delay = _time_delta_from_now(request[REQUEST_TIMESTAMP_KEY]) - 2
     delay = max(0, delay)
     event = _create_event_record_from_request(request)
     sqs = boto3.resource('sqs')
@@ -191,6 +207,7 @@ def _schedule_event(request: Dict):
             DelaySeconds=delay
         )
         if 'Failed' in response:
+            logger.error("Failed to add event %s to SQS queue. Error: %s", request, response["Failed"])
             raise ClientError(response["Failed"])
     except ClientError as e:
         logger.error("Failed to add event %s to SQS queue. Error: %s", request, e)
@@ -198,8 +215,11 @@ def _schedule_event(request: Dict):
 
 
 def handler(event, context):
+    logger.debug("Received event; %s", event)
+    event = json.loads(event['body'])
     err = _validate_request_body(event)
     if err is not None:
+        logger.info("Event validation failed. Event: %s, err: %s", event, err)
         return _create_json_response(400, err)
     
     try:
@@ -207,7 +227,8 @@ def handler(event, context):
             _schedule_event(event)
         else:
             _add_event_to_db(event)
-    except ClientError as _:
-       return _create_json_response(500, "Reminder failed to be scheduled") 
+    except ClientError as e:
+        logger.error("Failed to handle event. AWS error. Error: %s", e)
+        return _create_json_response(500, "Reminder failed to be scheduled") 
 
     return _create_json_response(200, "Reminder successfully scheduled")
