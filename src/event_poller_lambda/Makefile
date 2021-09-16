@@ -9,7 +9,7 @@ build-docker-event-poller-lambda:
 
 .PHONY: clean
 clean:
-	docker image rm -f docker-event-pollerlambda
+	docker image rm -f docker-event-poller-lambda
 
 .PHONY: test
 test: build-docker-event-poller-lambda

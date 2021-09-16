@@ -22,6 +22,14 @@ variable "runtime" {
   default = "python3.9"
 }
 
+variable "sms_event_handler_lambda_function_name" {
+  default = "sms-event-handler"
+}
+
+variable "sms_event_handler_lambda_zip_file" {
+  default = "sms-event-handler-lambda.zip.zip"
+}
+
 variable "storage_time_delta_minimum_seconds" {
   description = "The amount of time that an event must be in the future to be stored in persistent store"
   default     = "600" # 10 mins
