@@ -1,4 +1,6 @@
 lambda_zip_name = sms-event-handler-lambda.zip
+twillio_layer_zip_name = twillio-layer.zip
+mkfile_path := THIS_DIR := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
 
 .PHONY: all
 all: test
@@ -19,3 +21,9 @@ test: build-docker-sms-event-handler-lambda
 package:
 	cd src; zip -r ../$(lambda_zip_name) ./*
 	mv $(lambda_zip_name) ../../terraform/ 
+
+.PHONY: twillio-layer
+twillio-layer:
+	cd twillio-layer; ./create_layer.sh
+	zip -r $(twillio_layer_zip_name) ./twillio-layer/python
+	mv $(twillio_layer_zip_name) ../../terraform/ 	
