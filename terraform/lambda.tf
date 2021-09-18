@@ -189,3 +189,97 @@ resource "aws_iam_role_policy" "event_poller_lambda_role_policy" {
 }
 EOF
 }
+
+#####################################
+##### SMS Event Handler Lambda ######
+#####################################
+
+resource "aws_lambda_layer_version" "twilio_lambda_layer" {
+  filename         = var.twilio_lambda_layer_zip_file
+  layer_name       = "twilio_lambda_layer"
+  source_code_hash = filebase64sha256(var.twilio_lambda_layer_zip_file)
+
+  compatible_runtimes = ["python3.8", "python3.9"]
+}
+
+resource "aws_lambda_function" "sms_event_handler_lambda" {
+  role             = aws_iam_role.sms_event_handler_lambda_role.arn
+  handler          = "sms_event_handler.handler"
+  runtime          = var.runtime
+  filename         = var.sms_event_handler_lambda_zip_file
+  function_name    = var.sms_event_handler_lambda_function_name
+  source_code_hash = filebase64sha256(var.sms_event_handler_lambda_zip_file)
+  timeout          = 120
+  layers           = [aws_lambda_layer_version.twilio_lambda_layer.arn]
+
+  environment {
+    variables = {
+      LOG_LEVEL           = "DEBUG"
+      SMS_QUEUE_NAME      = aws_sqs_queue.sms_queue.name
+      TWILIO_ACCOUNT_SID  = var.twilio_account_sid
+      TWILIO_AUTH_TOKEN   = var.twilio_auth_token
+      TWILIO_PHONE_NUMBER = var.twilio_phone_number
+    }
+  }
+}
+
+resource "aws_iam_role" "sms_event_handler_lambda_role" {
+  name        = "${var.sms_event_handler_lambda_function_name}_lambda_role"
+  path        = "/"
+  description = "Allows Lambda Function to call AWS services on your behalf."
+
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_role_policy" "sms_event_handler_lambda_role_policy" {
+  name = "${var.sms_event_handler_lambda_function_name}_lambda_role_policy"
+  role = aws_iam_role.sms_event_handler_lambda_role.id
+
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+      {
+        "Action": [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "Resource": "arn:aws:logs:*:*:*",
+        "Effect": "Allow"
+      },
+      {
+          "Effect": "Allow",
+          "Action": [
+            "sqs:ChangeMessageVisibility",
+            "sqs:DeleteMessage",
+            "sqs:GetQueueAttributes",
+            "sqs:ReceiveMessage"
+          ],
+          "Resource": [
+              "${aws_sqs_queue.sms_queue.arn}"
+          ]
+      }
+  ]
+}
+EOF
+}
+
+resource "aws_lambda_event_source_mapping" "sms_event_handler_lambda_event_source_mapping" {
+  event_source_arn = aws_sqs_queue.sms_queue.arn
+  enabled          = true
+  function_name    = aws_lambda_function.sms_event_handler_lambda.arn
+}

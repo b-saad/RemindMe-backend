@@ -97,8 +97,8 @@ def _schedule_event(event: Dict, queue):
 	for k, v in event.items():
 		if isinstance(v, Decimal):
 			event[k] = int(v)
-	delay = _time_delta_from_now(event[EVENT_KEY_TIMESTAMP]) - 2
-    delay = max(0, delay)
+	delay = _time_delta_from_now(event[EVENT_KEY_TIMESTAMP]) - 5
+	delay = max(0, delay)
     try:
         response = queue.send_message(
             MessageBody=json.dumps(event),

@@ -168,3 +168,4 @@ cython_debug/
 *.tfstate
 *.tfstate.backup
 *.hcl
+*.tfvars

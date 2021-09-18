@@ -195,7 +195,7 @@ def _schedule_event(request: Dict):
     Args:
         request: event received by lambda
     """
-    delay = _time_delta_from_now(request[REQUEST_TIMESTAMP_KEY]) - 2
+    delay = _time_delta_from_now(request[REQUEST_TIMESTAMP_KEY]) - 5
     delay = max(0, delay)
     event = _create_event_record_from_request(request)
     sqs = boto3.resource('sqs')

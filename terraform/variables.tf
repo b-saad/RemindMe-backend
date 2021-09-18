@@ -26,8 +26,30 @@ variable "sms_event_handler_lambda_function_name" {
   default = "sms-event-handler"
 }
 
+variable "sms_event_handler_lambda_timeout" {
+  default = 120
+}
 variable "sms_event_handler_lambda_zip_file" {
-  default = "sms-event-handler-lambda.zip.zip"
+  default = "sms-event-handler-lambda.zip"
+}
+
+variable "twilio_lambda_layer_zip_file" {
+  default = "twilio-layer.zip"
+}
+
+variable "twilio_account_sid" {
+  type      = string
+  sensitive = true
+}
+
+variable "twilio_auth_token" {
+  type      = string
+  sensitive = true
+}
+
+variable "twilio_phone_number" {
+  type      = string
+  sensitive = true
 }
 
 variable "storage_time_delta_minimum_seconds" {
