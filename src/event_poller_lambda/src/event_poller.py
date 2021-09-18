@@ -43,34 +43,34 @@ def _get_previous_ten_minute_interval_start(timestamp: int) -> int:
     return int(interval_start.timestamp())
 
 def _get_next_window_bounds() -> (int, int):
-	"""
-	Gets the lower and upper bounds of the next window in unix time stamps
+    """
+    Gets the lower and upper bounds of the next window in unix time stamps
 
-	Returns:
-		(Unix Timestamp, Unix Timestamp)
-	"""
-	in_next_window = datetime.utcnow() + timedelta(seconds=int(EVENT_WINDOW_START_DELAY))
-	lower_bound = _get_previous_ten_minute_interval_start(int(in_next_window.timestamp()))
-	upper_bound = lower_bound + int(EVENT_WINDOW_LENGTH)
-	return (lower_bound, upper_bound)
+    Returns:
+        (Unix Timestamp, Unix Timestamp)
+    """
+    in_next_window = datetime.utcnow() + timedelta(seconds=int(EVENT_WINDOW_START_DELAY))
+    lower_bound = _get_previous_ten_minute_interval_start(int(in_next_window.timestamp()))
+    upper_bound = lower_bound + int(EVENT_WINDOW_LENGTH)
+    return (lower_bound, upper_bound)
 
 
 def _get_events_from_next_window() -> List[Dict]:
-	"""
-	Fetches events from persistent store
+    """
+    Fetches events from persistent store
 
-	Returns:
-		List of events in next window
-	"""
-	window_lower_bound, window_upper_bound = _get_next_window_bounds()
-	table = boto3.resource('dynamodb').Table(EVENT_TABLE_NAME)
-	response = table.query(  
+    Returns:
+        List of events in next window
+    """
+    window_lower_bound, window_upper_bound = _get_next_window_bounds()
+    table = boto3.resource('dynamodb').Table(EVENT_TABLE_NAME)
+    response = table.query(  
         IndexName=EVENT_TABLE_SECONDARY_INDEX,
         KeyConditionExpression=Key(EVENT_KEY_WINDOW_START).eq(window_lower_bound) & 
-							   Key(EVENT_KEY_TIMESTAMP).between(window_lower_bound, window_upper_bound)
+                               Key(EVENT_KEY_TIMESTAMP).between(window_lower_bound, window_upper_bound)
     )
-	logger.info("Retrieved %d events from DB", len(response["Items"]))
-	return response["Items"]
+    logger.info("Retrieved %d events from DB", len(response["Items"]))
+    return response["Items"]
 
 
 def _time_delta_from_now(timestamp: str) -> bool:
@@ -94,11 +94,11 @@ def _schedule_event(event: Dict, queue):
     Args:
         request: event received by lambda
     """
-	for k, v in event.items():
-		if isinstance(v, Decimal):
-			event[k] = int(v)
-	delay = _time_delta_from_now(event[EVENT_KEY_TIMESTAMP]) - 5
-	delay = max(0, delay)
+    for k, v in event.items():
+        if isinstance(v, Decimal):
+            event[k] = int(v)
+    delay = _time_delta_from_now(event[EVENT_KEY_TIMESTAMP]) - 5
+    delay = max(0, delay)
     try:
         response = queue.send_message(
             MessageBody=json.dumps(event),
@@ -111,23 +111,24 @@ def _schedule_event(event: Dict, queue):
 
 
 def _schedule_events(events: List[Dict]):
-	"""
-	Schedules events with appropriate delays in SQS queues
-	"""
-	sqs = boto3.resource('sqs')
-	sms_queue = sqs.get_queue_by_name(QueueName=SMS_QUEUE_NAME)
-	email_queue = sqs.get_queue_by_name(QueueName=EMAIL_QUEUE_NAME) 
-	for event in events:
-		if event[EVENT_KEY_EVENT_TYPE] == EVENT_TYPE_EMAIL:
-			_schedule_event(event, email_queue)
-		elif event[EVENT_KEY_EVENT_TYPE] == EVENT_TYPE_SMS:
-			_schedule_event(event, sms_queue)
+    """
+    Schedules events with appropriate delays in SQS queues
+    """
+    sqs = boto3.resource('sqs')
+    sms_queue = sqs.get_queue_by_name(QueueName=SMS_QUEUE_NAME)
+    email_queue = sqs.get_queue_by_name(QueueName=EMAIL_QUEUE_NAME) 
+    for event in events:
+        logger.debug("Scheduling event %s", event)
+        if event[EVENT_KEY_EVENT_TYPE] == EVENT_TYPE_EMAIL:
+            _schedule_event(event, email_queue)
+        elif event[EVENT_KEY_EVENT_TYPE] == EVENT_TYPE_SMS:
+            _schedule_event(event, sms_queue)
 
 
 def handler(event, context):
-	"""
-	Retrieve events for the near future from data store and schedule them
-	"""
-	events = _get_events_from_next_window()	
-	_schedule_events(events)
+    """
+    Retrieve events for the near future from data store and schedule them
+    """
+    events = _get_events_from_next_window()	
+    _schedule_events(events)
 

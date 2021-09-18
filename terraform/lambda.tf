@@ -190,6 +190,28 @@ resource "aws_iam_role_policy" "event_poller_lambda_role_policy" {
 EOF
 }
 
+resource "aws_cloudwatch_event_rule" "every_10_minutes_starting_at_7" {
+  name                = "every-10-minutes-starting-at-7"
+  description         = "Fires every 10 minutes starting at the 7th minute"
+  schedule_expression = "cron(7/10 * * * ? *)"
+}
+
+resource "aws_cloudwatch_event_target" "poll_for_events_every_10_minutes" {
+  rule      = aws_cloudwatch_event_rule.every_10_minutes_starting_at_7.name
+  target_id = "event_poller_lambda"
+  arn       = aws_lambda_function.event_poller_lambda.arn
+}
+
+resource "aws_lambda_permission" "allow_cloudwatch_to_call_event_poller_lambda" {
+  statement_id  = "AllowExecutionFromCloudWatch"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.event_poller_lambda.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.every_10_minutes_starting_at_7.arn
+}
+
+
+
 #####################################
 ##### SMS Event Handler Lambda ######
 #####################################
