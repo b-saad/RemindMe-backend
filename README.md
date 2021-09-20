@@ -2,11 +2,12 @@
 
 This is the backend for the RemindMe application. The front end lives in a separate repository and can be found here: https://github.com/b-saad/RemindMe
  
-This  consists of scheduling system stores and processes events via timestamps. The system is detailed below.
+This backend consists of a scheduling system that stores and processes events via timestamps. The system is detailed below.
 
 ## Architecture
 
-The backend is architected to use severless AWS services to avoid a web server deployment and is structured as follows:
+The backend is architected to use serverless AWS services to avoid a web server deployment and is structured as follows:
+
 ![RemindMe Backend Architecture](./assets/remind-me-backend.jpg)
 
 ### Components
@@ -46,13 +47,14 @@ Requirements:
 - Terraform 1.0.7
 - AWS CLI V2
 - AWS credentials stored in env variables so terraform can access them
-- Twilio Account with Phone number
+- Twilio Account with phone number
 - GNU Make
 
-This application is maintained deployed using terraform. To kept rack of the resources Terraform requires a backend and S3 is used in this project. The folder `terraform-remote-state` contains the files necessary to set up the backend and only needs to be done once.
+This application is maintained and deployed using terraform. To keep track of the AWS resources, Terraform requires a backend to store state and S3 is used in this project. The folder `terraform-remote-state` contains the files necessary to set up the terraform backend and only needs to be setup once.
 
 ### Terraform Backend Setup (one time)
 
+We need to deploy a DynamoDB table and S3 bucket to store terraform state. Both of which can easily fit in AWS free tier.
 Run the following commands:
 
 ```bash
@@ -61,7 +63,7 @@ terraform init
 terraform apply
 ```
 
-### Deploy Backend
+### Deploying Backend
 
 1. Define required tfvars
 
@@ -93,5 +95,4 @@ terraform apply
 
 ## TODO
 
-- Add support for email events by adding an Email Event Handler lambda 
-
+- Add support for email events by adding an Email Event Handler lambda
